@@ -283,16 +283,18 @@ export class ChessAI {
       const bookMove = this.openingBook.get(fen)!;
       // Validasi move dari opening book
       try {
-        const _move = game.move({
+        const validMove = game.move({
           from: bookMove.slice(0, 2),
           to: bookMove.slice(2, 4),
           promotion: bookMove.length > 4 ? bookMove[4] : undefined
         });
-        game.undo();
-        return bookMove;
-      } catch (e) {
-        console.warn('Invalid opening book move:', bookMove);
-        // Continue with normal search if opening book move is invalid
+        if (validMove) {
+          game.undo();
+          return bookMove;
+        }
+        return ''; // Return empty string if move is invalid
+      } catch (error) {
+        console.warn('Invalid opening book move:', bookMove, error);
       }
     }
 

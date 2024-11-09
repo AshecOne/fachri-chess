@@ -131,30 +131,30 @@ export default function GamePage() {
   }, [gameSituation, chatService]);
 
   // Update chat form submission
-  const _handleChatSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const input = form.elements.namedItem('message') as HTMLInputElement;
-    const message = input.value.trim();
+  // const _handleChatSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  //   e.preventDefault();
+  //   const form = e.currentTarget;
+  //   const input = form.elements.namedItem('message') as HTMLInputElement;
+  //   const message = input.value.trim();
   
-    if (message) {
-      // Add player message
-      setMessages(prev => [...prev, {
-        text: message,
-        sender: 'player'
-      }]);
-      input.value = ''; // Clear input immediately
+  //   if (message) {
+  //     // Add player message
+  //     setMessages(prev => [...prev, {
+  //       text: message,
+  //       sender: 'player'
+  //     }]);
+  //     input.value = ''; // Clear input immediately
   
-      // Get AI response with delay
-      const response = await chatService.generateResponse(message);
-      if (response) { // Only add if response is not null
-        setMessages(prev => [...prev, {
-          text: response,
-          sender: 'ai'
-        }]);
-      }
-    }
-  };
+  //     // Get AI response with delay
+  //     const response = await chatService.generateResponse(message);
+  //     if (response) { // Only add if response is not null
+  //       setMessages(prev => [...prev, {
+  //         text: response,
+  //         sender: 'ai'
+  //       }]);
+  //     }
+  //   }
+  // };
 
   // Helper function to evaluate board position
   const evaluatePosition = (board: Chess): number => {
