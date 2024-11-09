@@ -420,7 +420,7 @@ return (
                 <div className="text-center">
                   <div className="relative w-24 h-24 mx-auto mb-2">
                     <Image
-                      src="/fachri.jpg"
+                      src="https://ashecone.github.io/fachri-chess/fachri.jpg"
                       alt="Fachri"
                       sizes="96px"
                       priority
