@@ -128,10 +128,10 @@ export default function GamePage() {
     if (gameSituation !== 'normal') {
       handleGameSituationMessage();
     }
-  }, [gameSituation]);
+  }, [gameSituation, chatService]);
 
   // Update chat form submission
-  const handleChatSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const _handleChatSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
     const input = form.elements.namedItem('message') as HTMLInputElement;
@@ -198,7 +198,7 @@ useEffect(() => {
   };
 
   checkGameStatus();
-}, [game, playerColor, playerInfo]);
+}, [game, playerColor, playerInfo, winner]);
 
 useEffect(() => {
   let intervalId: NodeJS.Timeout;

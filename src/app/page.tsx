@@ -57,7 +57,7 @@ export default function Home() {
 
           {/* Additional dedication text */}
           <p className="text-sm sm:text-base text-gray-500 pt-6">
-            "Every move we make here celebrates his memory"
+          &quot;Every move we make here celebrates his memory&quot;
           </p>
         </div>
       </div>

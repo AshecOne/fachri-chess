@@ -283,7 +283,7 @@ export class ChessAI {
       const bookMove = this.openingBook.get(fen)!;
       // Validasi move dari opening book
       try {
-        const move = game.move({
+        const _move = game.move({
           from: bookMove.slice(0, 2),
           to: bookMove.slice(2, 4),
           promotion: bookMove.length > 4 ? bookMove[4] : undefined

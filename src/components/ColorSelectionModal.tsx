@@ -1,7 +1,5 @@
 'use client'
-
-import { Fragment } from 'react'
-import { Dialog, Transition } from '@headlessui/react'
+import { Dialog } from '@headlessui/react'
 
 type ColorChoice = 'White' | 'Black' | 'random';
 
