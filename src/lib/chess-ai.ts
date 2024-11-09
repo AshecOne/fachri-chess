@@ -236,7 +236,7 @@ export class ChessAI {
       };
 
       // Load model dengan progress tracking
-      const modelUrl = '/chess_model_quantized.onnx';
+      const modelUrl = 'https://ashecone.github.io/fachri-chess/chess_model_quantized.onnx';
       const response = await fetch(modelUrl);
       
       if (!response.ok) throw new Error('Failed to fetch model');
