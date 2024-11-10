@@ -5,6 +5,20 @@ export class ChatService {
   private lastMessageTime: number = 0;
   private messageDelay: number = 500;
 
+  private defaultResponses = [
+    "Hmm... menarik juga pemikiran lo",
+    "Bener juga sih... kayak yang Camus bilang",
+    "Wah, dalem juga ya diskusi kita",
+    "Asik nih ngobrolnya, sambil main catur",
+    "Kayak filosofi hidup ya, kadang kita harus mikir dalam-dalam",
+    "Lo tau ga, ini ngingetin gue sama teori eksistensialisme",
+    "Menarik banget cara pandang lo",
+    "Iya bener, hidup emang kadang absurd ya",
+    "Eh, sambil main catur gini jadi inget Nietzsche",
+    "Lo pernah baca karya-karya filosofi ga?",
+    "Kadang hidup itu kayak permainan catur ya"
+  ];
+
   private basicResponses = new Map<string, string[]>([
     ['halo', [
       'Halo juga! Gimana kabarnya?',
@@ -71,6 +85,15 @@ export class ChatService {
     ]]
   ]);
 
+  private generateDefaultResponse(): string {
+    // Pastikan tidak mengulang respons terakhir
+    let response: string;
+    do {
+      response = this.defaultResponses[Math.floor(Math.random() * this.defaultResponses.length)];
+    } while (response === this.lastResponse);
+    return response;
+  }
+
   public async generateResponse(
     message: string | null,
     situation: GameSituation = 'normal'
@@ -86,7 +109,7 @@ export class ChatService {
     if (message) {
       message = message.toLowerCase();
       
-      // Cek setiap keyword untuk response yang sesuai
+      // Cek kata kunci dalam pesan
       for (const [keyword, responses] of this.basicResponses) {
         if (message.includes(keyword)) {
           response = responses[Math.floor(Math.random() * responses.length)];
@@ -94,14 +117,9 @@ export class ChatService {
         }
       }
 
-      // Default response jika tidak ada keyword yang cocok
+      // Jika tidak ada kata kunci yang cocok, gunakan respons default
       if (!response) {
-        response = [
-          "Hmm... menarik juga pemikiran lo",
-          "Bener juga sih... kayak yang Camus bilang",
-          "Wah, dalem juga ya diskusi kita",
-          "Asik nih ngobrolnya, sambil main catur"
-        ][Math.floor(Math.random() * 4)];
+        response = this.generateDefaultResponse();
       }
     }
     // Handle game situations
@@ -112,12 +130,12 @@ export class ChatService {
       }
     }
 
-    if (response && response !== this.lastResponse) {
+    if (response) {
       this.lastResponse = response;
       this.lastMessageTime = currentTime;
       return response;
     }
 
-    return null;
+    return this.generateDefaultResponse();
   }
 }

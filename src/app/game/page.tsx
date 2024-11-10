@@ -131,30 +131,33 @@ export default function GamePage() {
   }, [gameSituation, chatService]);
 
   // Update chat form submission
-  // const _handleChatSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-  //   e.preventDefault();
-  //   const form = e.currentTarget;
-  //   const input = form.elements.namedItem('message') as HTMLInputElement;
-  //   const message = input.value.trim();
+  const handleChatSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const input = form.elements.namedItem('message') as HTMLInputElement;
+    const message = input.value.trim();
   
-  //   if (message) {
-  //     // Add player message
-  //     setMessages(prev => [...prev, {
-  //       text: message,
-  //       sender: 'player'
-  //     }]);
-  //     input.value = ''; // Clear input immediately
+    if (message) {
+      // Tambahkan pesan player
+      setMessages(prev => [...prev, {
+        text: message,
+        sender: 'player'
+      }]);
+      input.value = ''; // Clear input
   
-  //     // Get AI response with delay
-  //     const response = await chatService.generateResponse(message);
-  //     if (response) { // Only add if response is not null
-  //       setMessages(prev => [...prev, {
-  //         text: response,
-  //         sender: 'ai'
-  //       }]);
-  //     }
-  //   }
-  // };
+      // Dapatkan respons dari AI
+      const response = await chatService.generateResponse(message);
+      if (response) {
+        // Tambah delay untuk efek natural
+        setTimeout(() => {
+          setMessages(prev => [...prev, {
+            text: response,
+            sender: 'ai'
+          }]);
+        }, 500);
+      }
+    }
+  };
 
   // Helper function to evaluate board position
   const evaluatePosition = (board: Chess): number => {
@@ -534,33 +537,23 @@ return (
 
             {/* Chat Input */}
             <div className="border-t pt-4">
-              <form 
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const input = e.currentTarget.elements.namedItem('message') as HTMLInputElement;
-                  if (input.value.trim()) {
-                    setMessages([
-                      ...messages,
-                      { text: input.value, sender: 'player' }
-                    ]);
-                    input.value = '';
-                  }
-                }}
-                className="flex gap-2"
-              >
-                <input
-                  type="text"
-                  name="message"
-                  placeholder="Type a message..."
-                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  type="submit"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-                >
-                  Send
-                </button>
-              </form>
+            <form 
+  onSubmit={handleChatSubmit}
+  className="flex gap-2"
+>
+  <input
+    type="text"
+    name="message"
+    placeholder="Type a message..."
+    className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+  />
+  <button
+    type="submit"
+    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+  >
+    Send
+  </button>
+</form>
             </div>
           </div>
         </div>
