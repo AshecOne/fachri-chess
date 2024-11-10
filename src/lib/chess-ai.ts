@@ -194,31 +194,6 @@ export class ChessAI {
     return safety;
   }
 
-  private async evaluatePosition(board: Chess): Promise<number> {
-    if (!this.model) {
-      await this.initPromise;
-      if (!this.model) throw new Error('Model not loaded');
-    }
-
-    const input = this.boardToInput(board);
-    const tensor = new ort.Tensor('float32', input, [1, 896]);
-    
-    try {
-      const output = await this.model.run({ 'input': tensor });
-      let score = output['output'].data[0] as number;
-      
-      // Invert score if playing as black
-      if (board.turn() === 'b') {
-        score = -score;
-      }
-      
-      return score;
-    } catch (error) {
-      console.error('Evaluation error:', error);
-      return 0;
-    }
-}
-
   public async initialize(): Promise<void> {
     if (this.model) return;
 
@@ -285,28 +260,127 @@ export class ChessAI {
   }
 
   public async findBestMove(game: Chess): Promise<string> {
+    // Cek opening book dulu
+    const bookMove = this.getOpeningBookMove(game);
+    if (bookMove) {
+      // Tambahkan variasi dalam opening
+      const shouldUseBook = Math.random() > 0.2; // 80% chance menggunakan opening book
+      if (shouldUseBook) return bookMove;
+    }
+
     const moves = game.moves({ verbose: true });
     if (moves.length === 0) return '';
 
-    let bestMove = null;
-    let bestScore = -Infinity;
+    let topMoves: { move: Move; score: number }[] = [];
     const isWhite = game.turn() === 'w';
     
+    // Evaluate semua gerakan yang mungkin
     for (const move of moves) {
-        game.move(move);
-        // Evaluate from current player's perspective
-        const score = await this.evaluatePosition(game);
-        game.undo();
+      game.move(move);
+      const score = await this.evaluatePosition(game);
+      game.undo();
 
-        const adjustedScore = isWhite ? score : -score;
-        if (adjustedScore > bestScore) {
-            bestScore = adjustedScore;
-            bestMove = move;
-        }
+      const adjustedScore = isWhite ? score : -score;
+      topMoves.push({ move, score: adjustedScore });
     }
 
-    return bestMove ? `${bestMove.from}${bestMove.to}` : '';
-}
+    // Sort dan ambil beberapa gerakan terbaik
+    topMoves.sort((a, b) => b.score - a.score);
+    const topN = Math.min(3, topMoves.length); // Ambil 3 gerakan terbaik
+    
+    // Pilih secara random dari top moves dengan weighted probability
+    const randomIndex = this.weightedRandomIndex(topN);
+    const selectedMove = topMoves[randomIndex].move;
+
+    return `${selectedMove.from}${selectedMove.to}`;
+  }
+
+  private weightedRandomIndex(n: number): number {
+    // Berikan bobot lebih tinggi untuk moves yang lebih baik
+    const weights = Array(n).fill(0).map((_, i) => 1 / (i + 1));
+    const totalWeight = weights.reduce((a, b) => a + b, 0);
+    
+    let random = Math.random() * totalWeight;
+    for (let i = 0; i < weights.length; i++) {
+      random -= weights[i];
+      if (random <= 0) return i;
+    }
+    return 0;
+  }
+
+  private getOpeningBookMove(game: Chess): string | undefined {
+    const fen = game.fen();
+    const bookMove = this.openingBook.get(fen);
+    
+    if (bookMove) {
+      // Handle both coordinate notation (e2e4) and algebraic notation (e4, Nf3, etc)
+      if (bookMove.length === 4) {
+        // Coordinate notation
+        try {
+          const move = game.move({ 
+            from: bookMove.substring(0, 2) as Square, 
+            to: bookMove.substring(2, 4) as Square 
+          });
+          game.undo();
+          if (move) {
+            return `${move.from}${move.to}`;
+          }
+        } catch (e) {
+          console.error('Error in coordinate book move:', e);
+        }
+      } else {
+        // Algebraic notation
+        try {
+          const move = game.move(bookMove);
+          game.undo();
+          if (move) {
+            return `${move.from}${move.to}`;
+          }
+        } catch (e) {
+          console.error('Error in algebraic book move:', e);
+        }
+      }
+    }
+    return undefined;
+  }
+
+  private async evaluatePosition(board: Chess): Promise<number> {
+    if (!this.model) {
+      await this.initPromise;
+      if (!this.model) throw new Error('Model not loaded');
+    }
+
+    // Cek cache dulu
+    const fen = board.fen();
+    if (this.positionCache.has(fen)) {
+      return this.positionCache.get(fen)!;
+    }
+
+    const input = this.boardToInput(board);
+    const tensor = new ort.Tensor('float32', input, [1, 896]);
+    
+    try {
+      const output = await this.model.run({ 'input': tensor });
+      let score = output['output'].data[0] as number;
+      
+      // Tambahkan sedikit noise untuk variasi
+      const noise = (Math.random() - 0.5) * 0.1; // ±5% variasi
+      score = score * (1 + noise);
+      
+      // Invert score if playing as black
+      if (board.turn() === 'b') {
+        score = -score;
+      }
+      
+      // Cache the result
+      this.positionCache.set(fen, score);
+      
+      return score;
+    } catch (error) {
+      console.error('Evaluation error:', error);
+      return 0;
+    }
+  }
 
   private async findSimpleMoveVerbose(game: Chess): Promise<Move | null> {
     const moves = game.moves({ verbose: true });
