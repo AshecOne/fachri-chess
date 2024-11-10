@@ -31,6 +31,7 @@ export class ChessAI {
   private initializationStatus: AIStatus = 'idle';
   private modelLoadingProgress: number = 0;
   private maxDepth = 3;
+  private initPromise: Promise<void>;
 
   constructor() {
     // Initialize opening book in constructor
@@ -70,6 +71,7 @@ export class ChessAI {
       ['rnbqkbnr/pp2pppp/2p5/3p4/3PP3/8/PPP2PPP/RNBQKBNR w KQkq - 0 3', 'Nc3'],
     ]);
     this.initialize();
+    this.initPromise = this.initialize();
   }
 
   public getInitializationStatus(): { status: AIStatus; progress: number } {
@@ -193,31 +195,29 @@ export class ChessAI {
   }
 
   private async evaluatePosition(board: Chess): Promise<number> {
-    const fen = board.fen();
-    
-    if (this.positionCache.has(fen)) {
-      return this.positionCache.get(fen)!;
-    }
-
     if (!this.model) {
-      throw new Error('Model not loaded');
+      await this.initPromise;
+      if (!this.model) throw new Error('Model not loaded');
     }
 
+    const input = this.boardToInput(board);
+    const tensor = new ort.Tensor('float32', input, [1, 896]);
+    
     try {
-      const input = this.boardToInput(board);
-      const tensor = new ort.Tensor('float32', input, [1, 896]);
       const output = await this.model.run({ 'input': tensor });
-      const result = output['output'].data[0] as number;
+      let score = output['output'].data[0] as number;
       
-      // Cache the result
-      this.positionCache.set(fen, result);
-      return result;
+      // Invert score if playing as black
+      if (board.turn() === 'b') {
+        score = -score;
+      }
+      
+      return score;
     } catch (error) {
-      console.error('Model evaluation error:', error);
-      // Fallback to simple evaluation if model fails
-      return this.quickEvaluate(board);
+      console.error('Evaluation error:', error);
+      return 0;
     }
-  }
+}
 
   public async initialize(): Promise<void> {
     if (this.model) return;
@@ -236,7 +236,7 @@ export class ChessAI {
       };
 
       // Load model dengan progress tracking
-      const modelUrl = 'https://ashecone.github.io/fachri-chess/chess_model_quantized.onnx';
+      const modelUrl = '/chess_model.onnx';
       const response = await fetch(modelUrl);
       
       if (!response.ok) throw new Error('Failed to fetch model');
@@ -277,68 +277,28 @@ export class ChessAI {
   }
 
   public async findBestMove(game: Chess): Promise<string> {
-    // Check opening book first
-    const fen = game.fen();
-    if (this.openingBook.has(fen)) {
-      const bookMove = this.openingBook.get(fen)!;
-      // Validasi move dari opening book
-      try {
-        const validMove = game.move({
-          from: bookMove.slice(0, 2),
-          to: bookMove.slice(2, 4),
-          promotion: bookMove.length > 4 ? bookMove[4] : undefined
-        });
-        if (validMove) {
-          game.undo();
-          return bookMove;
-        }
-        return ''; // Return empty string if move is invalid
-      } catch (error) {
-        console.warn('Invalid opening book move:', bookMove, error);
-      }
-    }
-
-    // Get all legal moves
     const moves = game.moves({ verbose: true });
     if (moves.length === 0) return '';
 
-    let bestMove: Move | null = null;
+    let bestMove = null;
     let bestScore = -Infinity;
+    const isWhite = game.turn() === 'w';
     
-    // Gunakan Promise.race untuk membatasi waktu berpikir
-    const timeoutPromise = new Promise<string>((_, reject) => {
-      setTimeout(() => reject('timeout'), 3000);
-    });
+    for (const move of moves) {
+        game.move(move);
+        // Evaluate from current player's perspective
+        const score = await this.evaluatePosition(game);
+        game.undo();
 
-    try {
-      const movePromise = (async () => {
-        for (const move of moves) {
-          game.move(move);
-          const score = await this.alphaBeta(game, this.maxDepth - 1, -Infinity, Infinity, false);
-          game.undo();
-
-          if (score > bestScore) {
-            bestScore = score;
+        const adjustedScore = isWhite ? score : -score;
+        if (adjustedScore > bestScore) {
+            bestScore = adjustedScore;
             bestMove = move;
-          }
         }
-
-        if (!bestMove) return '';
-
-        // Return the move in correct format
-        return `${bestMove.from}${bestMove.to}${bestMove.promotion || ''}`;
-      })();
-
-      return await Promise.race([movePromise, timeoutPromise]);
-    } catch (error) {
-      if (error === 'timeout') {
-        // Use simple evaluation for timeout case
-        bestMove = await this.findSimpleMoveVerbose(game);
-        return bestMove ? `${bestMove.from}${bestMove.to}${bestMove.promotion || ''}` : '';
-      }
-      throw error;
     }
-  }
+
+    return bestMove ? `${bestMove.from}${bestMove.to}` : '';
+}
 
   private async findSimpleMoveVerbose(game: Chess): Promise<Move | null> {
     const moves = game.moves({ verbose: true });

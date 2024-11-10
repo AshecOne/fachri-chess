@@ -129,6 +129,41 @@ def prepare_training_data(games):
         
         # Convert result to target value
         if result == "1-0":
+            white_perspective = 1.0
+            black_perspective = -1.0
+        elif result == "0-1":
+            white_perspective = -1.0
+            black_perspective = 1.0
+        else:
+            white_perspective = 0.0
+            black_perspective = 0.0
+        
+        # Process all positions in the game
+        for move in game.mainline_moves():
+            board.push(move)
+            features = board_to_input(board)
+            
+            # Save position from both perspectives
+            if board.turn == chess.WHITE:
+                X.append(features)
+                y.append(white_perspective)
+            else:
+                X.append(features)
+                y.append(black_perspective)
+    
+    return np.array(X, dtype=np.float32), np.array(y, dtype=np.float32)
+    X = []
+    y = []
+    
+    for idx, game in enumerate(games):
+        if idx % 100 == 0:
+            print(f"Processing game {idx}/{len(games)}")
+        
+        board = game.board()
+        result = game.headers["Result"]
+        
+        # Convert result to target value
+        if result == "1-0":
             target = 1.0
         elif result == "0-1":
             target = -1.0
@@ -167,8 +202,13 @@ def main():
     # Training parameters
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
-    batch_size = 1024
-    num_epochs = 10
+    batch_size = 2048
+    num_epochs = 20
+
+    # Tambahkan early stopping
+    early_stopping = 5
+    best_loss = float('inf')
+    patience_counter = 0
     
     # Create directory for checkpoints
     os.makedirs('checkpoints', exist_ok=True)
