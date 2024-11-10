@@ -271,7 +271,7 @@ export class ChessAI {
     const moves = game.moves({ verbose: true });
     if (moves.length === 0) return '';
 
-    let topMoves: { move: Move; score: number }[] = [];
+    const topMoves: { move: Move; score: number }[] = [];
     const isWhite = game.turn() === 'w';
     
     // Evaluate semua gerakan yang mungkin
