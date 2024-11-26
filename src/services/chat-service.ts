@@ -31,7 +31,7 @@ export class ChatService {
       'Lumayan sih, lagi asik baca buku sambil main catur'
     ]],
     ['nama', [
-      'Gue Daffa, anak Bekasi yang suka filosofi',
+      'Gue Daffa, anak Depok yang suka filosofi',
       'Panggil aja Daffa, penggemar berat Albert Camus nih',
       'Daffa, dan gue percaya hidup itu absurd tapi menarik'
     ]],
