@@ -22,12 +22,6 @@ interface ChessMove {
   promotion?: 'q' | 'r' | 'b' | 'n';
 }
 
-type PromotionHandler = (
-  piece?: PromotionPieceOption,
-  _promoteFromSquare?: Square,
-  _promoteToSquare?: Square
-) => boolean;
-
 const ChessboardComponent = dynamic(
   () => import('react-chessboard').then((mod) => mod.Chessboard),
   { ssr: false }
@@ -347,36 +341,31 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
 
   const handlePromotionPieceSelect = (
     piece?: PromotionPieceOption,
-  ) => {
-    if (!promotionSquare || !piece) {
-      console.log('No promotion data:', { promotionSquare, piece }); // Debug log
-      return false;
-    }
+    _fromSquare?: Square,
+    _toSquare?: Square
+  ): boolean => {
+    if (!promotionSquare || !piece) return false;
   
     try {
-      console.log('Processing promotion:', { piece, square: promotionSquare }); // Debug log
-      
-      // Convert promotion piece format
       const pieceType = piece.charAt(1).toLowerCase();
       
-      const moveAttempt: ChessMove = {
+      const move = game.move({
         from: promotionSquare.from,
         to: promotionSquare.to,
         promotion: pieceType as 'q' | 'r' | 'b' | 'n'
-      };
-  
-      const move = game.move(moveAttempt);
+      });
   
       if (move) {
         const newGame = new Chess(game.fen());
         setGame(newGame);
         localStorage.setItem('gameState', newGame.pgn());
-        setPromotionSquare(null); // Reset promotion square
+        setPromotionSquare(null);
   
-        setTimeout(() => makeAIMove(), 500);
+        setTimeout(() => {
+          makeAIMove();
+        }, 500);
+        
         return true;
-      } else {
-        console.log('Invalid promotion move:', moveAttempt); // Debug log
       }
     } catch (error) {
       console.error('Promotion error:', error);
