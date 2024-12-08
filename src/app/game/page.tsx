@@ -486,30 +486,51 @@ return (
 
             {/* Game Status */}
             <div className="text-center mt-4">
-              <p className="text-sm text-gray-600">
-                {gameStatus === 'over' 
-                  ? (winner ? `${winner} wins!` : "Game Over - It's a draw!") 
-                  : isAIThinking 
+              {/* Regular turn status */}
+              {gameStatus !== 'over' && (
+                <p className="text-sm text-gray-600">
+                  {isAIThinking 
                     ? "AI is thinking..." 
                     : `Current turn: ${game.turn() === 'w' ? 'White' : 'Black'}`
-                }
-              </p>
+                  }
+                </p>
+              )}
 
-              {/* Game Over Actions */}
+              {/* Game Over Modal */}
               {gameStatus === 'over' && (
-                <div className="mt-4 space-x-4">
-                  <button 
-                    onClick={handlePlayAgain}
-                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-                  >
-                    Play Again
-                  </button>
-                  <button 
-                    onClick={handleQuit}
-                    className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-                  >
-                    Quit
-                  </button>
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md mx-4 transform animate-fadeIn">
+                    <div className="text-6xl mb-4">
+                      {winner ? '🏆' : '🤝'}
+                    </div>
+                    
+                    <h2 className="text-3xl font-bold text-gray-800 mb-2">
+                      {winner ? 'Game Over!' : "It's a Draw!"}
+                    </h2>
+                    
+                    {winner && (
+                      <div className="text-xl text-gray-600 mb-6">
+                        <span className="font-semibold text-blue-600">
+                          {winner}
+                        </span> has won the game!
+                      </div>
+                    )}
+                    
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center mt-6">
+                      <button 
+                        onClick={handlePlayAgain}
+                        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-semibold"
+                      >
+                        Play Again
+                      </button>
+                      <button 
+                        onClick={handleQuit}
+                        className="px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-semibold"
+                      >
+                        Quit Game
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -535,25 +556,21 @@ return (
               ))}
             </div>
 
-            {/* Chat Input */}
             <div className="border-t pt-4">
-            <form 
-  onSubmit={handleChatSubmit}
-  className="flex gap-2"
->
-  <input
-    type="text"
-    name="message"
-    placeholder="Type a message..."
-    className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-  />
-  <button
-    type="submit"
-    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-  >
-    Send
-  </button>
-</form>
+              <form onSubmit={handleChatSubmit} className="flex gap-2">
+                <input
+                  type="text"
+                  name="message"
+                  placeholder="Type a message..."
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="submit"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+                >
+                  Send
+                </button>
+              </form>
             </div>
           </div>
         </div>
