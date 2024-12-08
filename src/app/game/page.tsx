@@ -338,14 +338,18 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
     return false;
   };
 
-const handlePromotionPieceSelect = (
-  piece?: PromotionPieceOption, 
-): boolean => {
+  
+type PromotionHandler = (
+  piece?: PromotionPieceOption,
+  _promoteFromSquare?: Square,
+  _promoteToSquare?: Square
+) => boolean;
+
+const handlePromotionPieceSelect: PromotionHandler = (piece) => {
   if (!promotionSquare || !piece) return false;
 
   try {
-    // Konversi dari format react-chessboard ke format chess.js
-    const pieceType = piece.charAt(1).toLowerCase();  // 'wQ' -> 'q', 'bR' -> 'r', etc.
+    const pieceType = piece.charAt(1).toLowerCase();
     
     const move = game.move({
       from: promotionSquare.from,
@@ -359,7 +363,6 @@ const handlePromotionPieceSelect = (
       localStorage.setItem('gameState', newGame.pgn());
       setPromotionSquare(null);
 
-      // AI move after promotion
       setTimeout(() => {
         makeAIMove();
       }, 500);
