@@ -8,19 +8,6 @@ import Image from 'next/image'
 import ColorSelectionModal from '@/components/ColorSelectionModal'
 import { ChessAI } from '@/lib/chess-ai'
 import { ChatService } from '@/services/chat-service';
-import type { Square } from 'chess.js';
-import type { PromotionPieceOption } from 'react-chessboard/dist/chessboard/types';
-
-interface PromotionSquare {
-  from: Square;
-  to: Square;
-}
-
-interface ChessMove {
-  from: Square;
-  to: Square;
-  promotion?: 'q' | 'r' | 'b' | 'n';
-}
 
 const ChessboardComponent = dynamic(
   () => import('react-chessboard').then((mod) => mod.Chessboard),
@@ -45,7 +32,6 @@ export default function GamePage() {
   const [winner, setWinner] = useState<string | null>(null);
   const [chatService] = useState(() => new ChatService());
   const [gameSituation, setGameSituation] = useState<'normal' | 'advantage' | 'disadvantage' | 'check' | 'winning' | 'losing' | 'draw'>('normal');
-  const [promotionSquare, setPromotionSquare] = useState<PromotionSquare | null>(null);
 
   useEffect(() => {
     // Cek info player
@@ -294,83 +280,36 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
     }
   };
 
-  const handleMove = (from: Square, to: Square): boolean => {
+  const handleMove = (from: string, to: string) => {
     try {
-      // Cek giliran
-      if ((playerColor === 'White' && game.turn() === 'b') ||
-          (playerColor === 'Black' && game.turn() === 'w')) {
+      if (
+        (playerColor === 'White' && game.turn() === 'b') ||
+        (playerColor === 'Black' && game.turn() === 'w')
+      ) {
         return false;
       }
   
-      const movingPiece = game.get(from);
-      
-      // Cek kemungkinan promosi dengan lebih detail
-      const isPromotion = 
-        movingPiece?.type === 'p' && // Is it a pawn?
-        ((movingPiece.color === 'w' && to[1] === '8') || // White pawn to 8th rank
-         (movingPiece.color === 'b' && to[1] === '1')) && // Black pawn to 1st rank
-        // Pastikan gerakan legal
-        game.moves({ 
-          square: from, 
-          verbose: true 
-        }).some(move => move.to === to);
-  
-      if (isPromotion) {
-        console.log('Promotion detected:', from, to); // Debug log
-        setPromotionSquare({ from, to });
-        return false;
-      }
-  
-      // Regular move
-      const moveAttempt = game.move({ from, to, promotion: 'q' });
-      if (moveAttempt) {
-        const newGame = new Chess(game.fen());
-        setGame(newGame);
-        localStorage.setItem('gameState', newGame.pgn());
-        
-        setTimeout(() => makeAIMove(), 500);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Move error:', error);
-      return false;
-    }
-  };
-
-
-  const handlePromotionPieceSelect = (
-    piece?: PromotionPieceOption,
-    _fromSquare?: Square,
-    _toSquare?: Square
-  ): boolean => {
-    if (!promotionSquare || !piece) return false;
-  
-    try {
-      const pieceType = piece.charAt(1).toLowerCase();
-      
       const move = game.move({
-        from: promotionSquare.from,
-        to: promotionSquare.to,
-        promotion: pieceType as 'q' | 'r' | 'b' | 'n'
+        from,
+        to,
+        promotion: 'q',
       });
   
       if (move) {
         const newGame = new Chess(game.fen());
         setGame(newGame);
         localStorage.setItem('gameState', newGame.pgn());
-        setPromotionSquare(null);
   
+        // AI membuat gerakan setelah pemain
         setTimeout(() => {
           makeAIMove();
         }, 500);
-        
+  
         return true;
       }
     } catch (error) {
-      console.error('Promotion error:', error);
+      console.error('Move error:', error);
     }
-    
     return false;
   };
 
@@ -467,17 +406,15 @@ return (
             <div className="flex flex-col lg:flex-row gap-8">
               {/* Chess Board */}
               <div className="flex-1 flex justify-center lg:justify-start">
-              <ChessboardComponent 
-  position={game.fen()}
-  boardOrientation={playerColor === 'Black' ? 'black' : 'white'}
-  onPieceDrop={handleMove}
-  boardWidth={Math.min(600, typeof window !== 'undefined' ? window.innerWidth - 80 : 600)}
-  customBoardStyle={{
-    borderRadius: '4px',
-  }}
-  promotionToSquare={promotionSquare?.to} // Ini harus selalu diupdate saat ada promosi
-  onPromotionPieceSelect={handlePromotionPieceSelect}
-/>
+                <ChessboardComponent 
+                  position={game.fen()}
+                  boardOrientation={playerColor === 'Black' ? 'black' : 'white'}
+                  onPieceDrop={(sourceSquare: string, targetSquare: string) => {
+                    handleMove(sourceSquare, targetSquare);
+                    return true;
+                  }}
+                  boardWidth={Math.min(600, typeof window !== 'undefined' ? window.innerWidth - 80 : 600)}
+                />
               </div>
 
               {/* Desktop Players Info */}
