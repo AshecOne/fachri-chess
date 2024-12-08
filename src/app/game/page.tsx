@@ -9,7 +9,6 @@ import ColorSelectionModal from '@/components/ColorSelectionModal'
 import { ChessAI } from '@/lib/chess-ai'
 import { ChatService } from '@/services/chat-service';
 import type { Square } from 'chess.js';
-import type { Piece } from 'react-chessboard/dist/chessboard/types';
 import type { PromotionPieceOption } from 'react-chessboard/dist/chessboard/types';
 
 interface PromotionSquare {
@@ -301,7 +300,7 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
   
       // Get the piece that's moving
       const movingPiece = game.get(from);
-      const targetSquare = game.get(to);
+      
   
       // Check if this is a pawn promotion move
       const isPromotion = 
@@ -341,8 +340,6 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
 
 const handlePromotionPieceSelect = (
   piece?: PromotionPieceOption, 
-  promoteFromSquare?: Square, 
-  promoteToSquare?: Square
 ): boolean => {
   if (!promotionSquare || !piece) return false;
 
