@@ -3,7 +3,7 @@ export interface PlayerInfo {
     gender: string;
   }
   
-  export interface GameState {
+export interface GameState {
     fen: string;
     playerColor: 'w' | 'b';
     isPlayerTurn: boolean;

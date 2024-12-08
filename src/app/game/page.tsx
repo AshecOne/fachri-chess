@@ -16,6 +16,17 @@ interface PromotionSquare {
   to: Square;
 }
 
+interface ChessMove {
+  from: Square;
+  to: Square;
+  promotion?: 'q' | 'r' | 'b' | 'n';
+}
+
+type PromotionHandler = (
+  piece?: PromotionPieceOption,
+  _promoteFromSquare?: Square,
+  _promoteToSquare?: Square
+) => boolean;
 
 const ChessboardComponent = dynamic(
   () => import('react-chessboard').then((mod) => mod.Chessboard),
@@ -291,90 +302,88 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
 
   const handleMove = (from: Square, to: Square): boolean => {
     try {
-      if (
-        (playerColor === 'White' && game.turn() === 'b') ||
-        (playerColor === 'Black' && game.turn() === 'w')
-      ) {
+      // Cek giliran
+      if ((playerColor === 'White' && game.turn() === 'b') ||
+          (playerColor === 'Black' && game.turn() === 'w')) {
         return false;
       }
   
-      // Get the piece that's moving
       const movingPiece = game.get(from);
       
-  
-      // Check if this is a pawn promotion move
+      // Cek kemungkinan promosi dengan lebih detail
       const isPromotion = 
         movingPiece?.type === 'p' && // Is it a pawn?
-        ((movingPiece.color === 'w' && to[1] === '8') || // White pawn reaching 8th rank
-         (movingPiece.color === 'b' && to[1] === '1')); // Black pawn reaching 1st rank
+        ((movingPiece.color === 'w' && to[1] === '8') || // White pawn to 8th rank
+         (movingPiece.color === 'b' && to[1] === '1')) && // Black pawn to 1st rank
+        // Pastikan gerakan legal
+        game.moves({ 
+          square: from, 
+          verbose: true 
+        }).some(move => move.to === to);
   
       if (isPromotion) {
-        // Store the promotion square for later use
+        console.log('Promotion detected:', from, to); // Debug log
         setPromotionSquare({ from, to });
         return false;
       }
   
-      const move = game.move({
-        from,
-        to,
-        promotion: 'q', // Default to queen for non-promotion moves
-      });
+      // Regular move
+      const moveAttempt = game.move({ from, to, promotion: 'q' });
+      if (moveAttempt) {
+        const newGame = new Chess(game.fen());
+        setGame(newGame);
+        localStorage.setItem('gameState', newGame.pgn());
+        
+        setTimeout(() => makeAIMove(), 500);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Move error:', error);
+      return false;
+    }
+  };
+
+
+  const handlePromotionPieceSelect = (
+    piece?: PromotionPieceOption,
+  ) => {
+    if (!promotionSquare || !piece) {
+      console.log('No promotion data:', { promotionSquare, piece }); // Debug log
+      return false;
+    }
+  
+    try {
+      console.log('Processing promotion:', { piece, square: promotionSquare }); // Debug log
+      
+      // Convert promotion piece format
+      const pieceType = piece.charAt(1).toLowerCase();
+      
+      const moveAttempt: ChessMove = {
+        from: promotionSquare.from,
+        to: promotionSquare.to,
+        promotion: pieceType as 'q' | 'r' | 'b' | 'n'
+      };
+  
+      const move = game.move(moveAttempt);
   
       if (move) {
         const newGame = new Chess(game.fen());
         setGame(newGame);
         localStorage.setItem('gameState', newGame.pgn());
+        setPromotionSquare(null); // Reset promotion square
   
-        // AI move after player's move
-        setTimeout(() => {
-          makeAIMove();
-        }, 500);
-  
+        setTimeout(() => makeAIMove(), 500);
         return true;
+      } else {
+        console.log('Invalid promotion move:', moveAttempt); // Debug log
       }
     } catch (error) {
-      console.error('Move error:', error);
+      console.error('Promotion error:', error);
     }
+    
     return false;
   };
-
-  
-type PromotionHandler = (
-  piece?: PromotionPieceOption,
-  _promoteFromSquare?: Square,
-  _promoteToSquare?: Square
-) => boolean;
-
-const handlePromotionPieceSelect: PromotionHandler = (piece) => {
-  if (!promotionSquare || !piece) return false;
-
-  try {
-    const pieceType = piece.charAt(1).toLowerCase();
-    
-    const move = game.move({
-      from: promotionSquare.from,
-      to: promotionSquare.to,
-      promotion: pieceType as 'q' | 'r' | 'b' | 'n'
-    });
-
-    if (move) {
-      const newGame = new Chess(game.fen());
-      setGame(newGame);
-      localStorage.setItem('gameState', newGame.pgn());
-      setPromotionSquare(null);
-
-      setTimeout(() => {
-        makeAIMove();
-      }, 500);
-      
-      return true;
-    }
-  } catch (error) {
-    console.error('Promotion error:', error);
-  }
-  
-  return false;
-};
 
   const makeAIMove = async () => {
     if (!isAIReady) return;
@@ -472,14 +481,12 @@ return (
               <ChessboardComponent 
   position={game.fen()}
   boardOrientation={playerColor === 'Black' ? 'black' : 'white'}
-  onPieceDrop={(sourceSquare: Square, targetSquare: Square) => 
-    handleMove(sourceSquare, targetSquare)
-  }
+  onPieceDrop={handleMove}
   boardWidth={Math.min(600, typeof window !== 'undefined' ? window.innerWidth - 80 : 600)}
   customBoardStyle={{
     borderRadius: '4px',
   }}
-  promotionToSquare={promotionSquare?.to}
+  promotionToSquare={promotionSquare?.to} // Ini harus selalu diupdate saat ada promosi
   onPromotionPieceSelect={handlePromotionPieceSelect}
 />
               </div>
