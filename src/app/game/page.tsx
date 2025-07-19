@@ -40,6 +40,9 @@ export default function GamePage() {
   const [isAIMakingMove, setIsAIMakingMove] = useState(false);
   const [draggedPiece, setDraggedPiece] = useState<{piece: string, from: string} | null>(null);
   const [intendedTarget, setIntendedTarget] = useState<string | null>(null);
+  const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
+  const [validMoves, setValidMoves] = useState<string[]>([]);
+  const [showMoveHints, setShowMoveHints] = useState(true);
 
   useEffect(() => {
     // Only access localStorage on client side
@@ -158,6 +161,16 @@ export default function GamePage() {
 
     handleInitialAIMove();
   }, [isAIReady, playerColor]); // Remove 'game' from dependencies to prevent infinite loop
+
+  // Load move hints preference from localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const savedPreference = localStorage.getItem('showMoveHints');
+    if (savedPreference !== null) {
+      setShowMoveHints(JSON.parse(savedPreference));
+    }
+  }, []);
 
   // Update chat form submission
   const handleChatSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -309,6 +322,81 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
           makeAIMove(true);
         }
       }, 2000);
+    }
+  };
+
+  const toggleMoveHints = () => {
+    const newValue = !showMoveHints;
+    setShowMoveHints(newValue);
+    
+    // Save to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('showMoveHints', JSON.stringify(newValue));
+    }
+    
+    console.log('Move hints toggled:', newValue);
+  };
+
+  const handleSquareClick = (square: string) => {
+    console.log('Square clicked:', square);
+    
+    // Check if it's player's turn
+    const isPlayerTurn = 
+      (playerColor === 'White' && game.turn() === 'w') ||
+      (playerColor === 'Black' && game.turn() === 'b');
+    
+    if (!isPlayerTurn) return;
+
+    const piece = game.get(square);
+    
+    // If no piece is selected yet
+    if (!selectedSquare) {
+      // Only select if there's a piece on this square and it belongs to the player
+      if (piece && 
+          ((playerColor === 'White' && piece.color === 'w') ||
+           (playerColor === 'Black' && piece.color === 'b'))) {
+        setSelectedSquare(square);
+        
+        // Get valid moves for this piece
+        const moves = game.moves({ square, verbose: true });
+        const moveSquares = moves.map(move => move.to);
+        setValidMoves(moveSquares);
+        
+        console.log('Piece selected:', square, 'Valid moves:', moveSquares);
+      }
+    } else {
+      // A piece is already selected
+      if (selectedSquare === square) {
+        // Clicking the same square - deselect
+        setSelectedSquare(null);
+        setValidMoves([]);
+        console.log('Piece deselected');
+      } else if (piece && 
+                 ((playerColor === 'White' && piece.color === 'w') ||
+                  (playerColor === 'Black' && piece.color === 'b'))) {
+        // Clicking another own piece - select the new piece
+        setSelectedSquare(square);
+        const moves = game.moves({ square, verbose: true });
+        const moveSquares = moves.map(move => move.to);
+        setValidMoves(moveSquares);
+        console.log('New piece selected:', square, 'Valid moves:', moveSquares);
+      } else {
+        // Clicking a target square - attempt to move
+        if (validMoves.includes(square)) {
+          console.log('Making move:', selectedSquare, '→', square);
+          const moveResult = handleMove(selectedSquare, square);
+          if (moveResult) {
+            // Move was successful, clear selection
+            setSelectedSquare(null);
+            setValidMoves([]);
+          }
+        } else {
+          // Invalid move - clear selection
+          setSelectedSquare(null);
+          setValidMoves([]);
+          console.log('Invalid move attempted, clearing selection');
+        }
+      }
     }
   };
 
@@ -522,6 +610,10 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
             if (typeof window !== 'undefined') {
               localStorage.setItem('gameState', newGame.pgn());
             }
+            
+            // Clear selection after AI move
+            setSelectedSquare(null);
+            setValidMoves([]);
           }
         } catch (moveError) {
           console.error('Invalid AI move:', moveString, moveError);
@@ -536,6 +628,10 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
               if (typeof window !== 'undefined') {
                 localStorage.setItem('gameState', newGame.pgn());
               }
+              
+              // Clear selection after AI move
+              setSelectedSquare(null);
+              setValidMoves([]);
             }
           }
         }
@@ -602,9 +698,13 @@ return (
                 <ChessboardComponent 
                   position={game.fen()}
                   boardOrientation={playerColor === 'Black' ? 'black' : 'white'}
+                  onSquareClick={handleSquareClick}
                   onPieceDrop={(sourceSquare: string, targetSquare: string) => {
                     console.log('onPieceDrop called:', { sourceSquare, targetSquare });
                     setIntendedTarget(targetSquare); // Store where user intended to drop
+                    // Clear selection when using drag
+                    setSelectedSquare(null);
+                    setValidMoves([]);
                     return handleMove(sourceSquare, targetSquare);
                   }}
                   onPieceDragBegin={(piece: string, sourceSquare: string) => {
@@ -700,6 +800,24 @@ return (
                   }}
                   customDarkSquareStyle={{ backgroundColor: '#779952' }}
                   customLightSquareStyle={{ backgroundColor: '#edeed1' }}
+                  customSquareStyles={{
+                    // Always highlight selected square (subtle)
+                    ...(selectedSquare && {
+                      [selectedSquare]: {
+                        backgroundColor: showMoveHints ? '#ffd700' : 'rgba(255, 215, 0, 0.3)',
+                        border: showMoveHints ? '3px solid #ff6b35' : '2px solid rgba(255, 107, 53, 0.5)'
+                      }
+                    }),
+                    // Conditionally highlight valid move squares
+                    ...(showMoveHints ? validMoves.reduce((styles, square) => {
+                      styles[square] = {
+                        backgroundColor: game.get(square) ? 'rgba(255, 0, 0, 0.4)' : 'rgba(0, 255, 0, 0.4)',
+                        borderRadius: '50%',
+                        border: '2px solid #007bff'
+                      };
+                      return styles;
+                    }, {} as Record<string, React.CSSProperties>) : {})
+                  }}
                   boardWidth={Math.min(600, typeof window !== 'undefined' ? window.innerWidth - 80 : 600)}
                 />
               </div>
@@ -771,17 +889,36 @@ return (
               </div>
             </div>
 
-            {/* Game Status */}
-            <div className="text-center mt-4">
-              {/* Regular turn status */}
-              {gameStatus !== 'over' && (
-                <p className="text-sm text-gray-600">
-                  {isAIThinking 
-                    ? "AI is thinking..." 
-                    : `Current turn: ${game.turn() === 'w' ? 'White' : 'Black'}`
-                  }
-                </p>
-              )}
+            {/* Game Controls */}
+            <div className="flex flex-col items-center mt-4 gap-3">
+              {/* Move Hints Toggle */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleMoveHints}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    showMoveHints 
+                      ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  {showMoveHints ? '🎯 Hide Hints' : '👁️ Show Hints'}
+                </button>
+                <span className="text-xs text-gray-500 hidden sm:inline">
+                  {showMoveHints ? 'Expert mode off' : 'Expert mode on'}
+                </span>
+              </div>
+
+              {/* Game Status */}
+              <div className="text-center">
+                {/* Regular turn status */}
+                {gameStatus !== 'over' && (
+                  <p className="text-sm text-gray-600">
+                    {isAIThinking 
+                      ? "AI is thinking..." 
+                      : `Current turn: ${game.turn() === 'w' ? 'White' : 'Black'}`
+                    }
+                  </p>
+                )}
 
               {/* Game Over Modal */}
               {gameStatus === 'over' && (
@@ -820,6 +957,7 @@ return (
                   </div>
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>
