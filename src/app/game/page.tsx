@@ -963,40 +963,41 @@ return (
         </div>
 
         {/* Chat Section */}
-        <div className="bg-white h-[475px] rounded-lg shadow-lg p-4">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Chat with Fachri</h2>
-          <div className="h-[400px] flex flex-col">
-            <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-              {messages.map((message, index) => (
-                <div
-                  key={index}
-                  className={`p-3 rounded-lg ${
-                    message.sender === 'ai'
-                      ? 'bg-blue-100 ml-4'
-                      : 'bg-green-100 mr-4'
-                  }`}
-                >
-                  {message.text}
-                </div>
-              ))}
-            </div>
+        <div className="bg-white rounded-lg shadow-lg p-4 flex flex-col h-[400px] sm:h-[450px] lg:h-[475px]">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4 flex-shrink-0">Chat with Fachri</h2>
+          
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto space-y-4 mb-4 min-h-0">
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={`p-3 rounded-lg ${
+                  message.sender === 'ai'
+                    ? 'bg-blue-100 ml-4'
+                    : 'bg-green-100 mr-4'
+                }`}
+              >
+                {message.text}
+              </div>
+            ))}
+          </div>
 
-            <div className="border-t pt-4">
-              <form onSubmit={handleChatSubmit} className="flex gap-2">
-                <input
-                  type="text"
-                  name="message"
-                  placeholder="Type a message..."
-                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  type="submit"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-                >
-                  Send
-                </button>
-              </form>
-            </div>
+          {/* Input Area */}
+          <div className="border-t pt-4 flex-shrink-0">
+            <form onSubmit={handleChatSubmit} className="flex gap-2">
+              <input
+                type="text"
+                name="message"
+                placeholder="Type a message..."
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-0"
+              />
+              <button
+                type="submit"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex-shrink-0"
+              >
+                Send
+              </button>
+            </form>
           </div>
         </div>
       </div>
