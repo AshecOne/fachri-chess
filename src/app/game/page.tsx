@@ -347,7 +347,7 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
     
     if (!isPlayerTurn) return;
 
-    const piece = game.get(square);
+    const piece = game.get(square as any);
     
     // If no piece is selected yet
     if (!selectedSquare) {
@@ -358,7 +358,7 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
         setSelectedSquare(square);
         
         // Get valid moves for this piece
-        const moves = game.moves({ square, verbose: true });
+        const moves = game.moves({ square: square as any, verbose: true });
         const moveSquares = moves.map(move => move.to);
         setValidMoves(moveSquares);
         
@@ -376,7 +376,7 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
                   (playerColor === 'Black' && piece.color === 'b'))) {
         // Clicking another own piece - select the new piece
         setSelectedSquare(square);
-        const moves = game.moves({ square, verbose: true });
+        const moves = game.moves({ square: square as any, verbose: true });
         const moveSquares = moves.map(move => move.to);
         setValidMoves(moveSquares);
         console.log('New piece selected:', square, 'Valid moves:', moveSquares);
@@ -409,7 +409,7 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
         return false;
       }
 
-      const piece = game.get(from);
+      const piece = game.get(from as any);
 
       // Check if this could be a promotion move (before validating)
       const couldBePromotion = piece && 
@@ -439,7 +439,7 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
             isLegal: isLegalPromotionMove
           });
         } catch (error) {
-          console.log('Promotion test failed:', error.message);
+          console.log('Promotion test failed:', error instanceof Error ? error.message : String(error));
           isLegalPromotionMove = false;
         }
 
@@ -711,12 +711,12 @@ return (
                     console.log('Drag begin:', { piece, sourceSquare });
                     setIntendedTarget(null); // Reset intended target
                   }}
-                  onPieceDragEnd={(piece: string, sourceSquare: string, targetSquare: string | null) => {
-                    console.log('onPieceDragEnd called:', { piece, sourceSquare, targetSquare, intendedTarget });
+                  onPieceDragEnd={(piece: string, sourceSquare: string) => {
+                    console.log('onPieceDragEnd called:', { piece, sourceSquare, intendedTarget });
                     
-                    // If targetSquare is null, react-chessboard blocked the move
+                    // react-chessboard blocked the move
                     // This might be a promotion that was blocked, so we need to check
-                    if (!targetSquare) {
+                    if (true) { // Always check for promotion on drag end
                       const isPawn = piece.toLowerCase().includes('p');
                       
                       if (isPawn) {
@@ -809,7 +809,7 @@ return (
                     // Conditionally highlight valid move squares
                     ...(showMoveHints ? validMoves.reduce((styles, square) => {
                       styles[square] = {
-                        backgroundColor: game.get(square) ? 'rgba(255, 0, 0, 0.4)' : 'rgba(0, 255, 0, 0.4)',
+                        backgroundColor: game.get(square as any) ? 'rgba(255, 0, 0, 0.4)' : 'rgba(0, 255, 0, 0.4)',
                         borderRadius: '50%',
                         border: '2px solid #007bff'
                       };
