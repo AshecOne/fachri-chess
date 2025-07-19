@@ -222,6 +222,8 @@ export class ChessAI {
     this.initializationStatus = "loading";
 
     try {
+      // Temporary fallback - skip model loading if it fails
+      console.log('Attempting to load ONNX model...');
       // Konfigurasi untuk optimasi performa
       const options: ort.InferenceSession.SessionOptions = {
         executionProviders: ["wasm"],
@@ -266,8 +268,10 @@ export class ChessAI {
       this.modelLoadingProgress = 100;
     } catch (error) {
       console.error("Error loading model:", error);
-      this.initializationStatus = "error";
-      throw error;
+      console.log("Falling back to simple AI without ONNX model");
+      this.initializationStatus = "ready"; // Mark as ready even without model
+      this.modelLoadingProgress = 100;
+      // Don't throw error, just continue without model
     }
   }
 
@@ -361,7 +365,11 @@ export class ChessAI {
   private async evaluatePosition(board: Chess): Promise<number> {
     if (!this.model) {
       await this.initPromise;
-      if (!this.model) throw new Error("Model not loaded");
+      if (!this.model) {
+        // Fallback to quick evaluation if model not available
+        console.log("Using fallback evaluation (no ONNX model)");
+        return this.quickEvaluate(board);
+      }
     }
 
     // Cek cache dulu

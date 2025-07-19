@@ -37,7 +37,9 @@ export default function GamePage() {
   const [showPromotionModal, setShowPromotionModal] = useState(false);
   const [pendingMove, setPendingMove] = useState<{from: string, to: string} | null>(null);
   const [isProcessingPromotion, setIsProcessingPromotion] = useState(false);
+  const [isAIMakingMove, setIsAIMakingMove] = useState(false);
   const [draggedPiece, setDraggedPiece] = useState<{piece: string, from: string} | null>(null);
+  const [intendedTarget, setIntendedTarget] = useState<string | null>(null);
 
   useEffect(() => {
     // Only access localStorage on client side
@@ -141,6 +143,21 @@ export default function GamePage() {
       handleGameSituationMessage();
     }
   }, [gameSituation, chatService]);
+
+  // Handle AI's first move when player chooses Black
+  useEffect(() => {
+    const handleInitialAIMove = async () => {
+      // Only trigger once at the start of a new game
+      if (isAIReady && playerColor === 'Black' && game.turn() === 'w' && game.history().length === 0) {
+        console.log('Initial AI move: player is Black, making first move as White');
+        setTimeout(() => {
+          makeAIMove(true);
+        }, 1000);
+      }
+    };
+
+    handleInitialAIMove();
+  }, [isAIReady, playerColor]); // Remove 'game' from dependencies to prevent infinite loop
 
   // Update chat form submission
   const handleChatSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -284,11 +301,14 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
       sender: 'ai'
     }]);
   
-    // Jika player memilih hitam, AI (putih) mulai duluan
+    // Fallback: if useEffect doesn't trigger, try manual call
     if (selectedColor === 'Black') {
       setTimeout(() => {
-        makeAIMove();
-      }, 1000);
+        if (isAIReady && game.turn() === 'w' && game.history().length === 0 && !isAIMakingMove) {
+          console.log('Fallback: manually triggering AI first move');
+          makeAIMove(true);
+        }
+      }, 2000);
     }
   };
 
@@ -364,7 +384,9 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
   
         // AI membuat gerakan setelah pemain
         setTimeout(() => {
-          makeAIMove();
+          if (!isAIMakingMove) {
+            makeAIMove();
+          }
         }, 500);
   
         return true;
@@ -423,7 +445,9 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
 
         // AI makes move after player
         setTimeout(() => {
-          makeAIMove();
+          if (!isAIMakingMove) {
+            makeAIMove();
+          }
         }, 500);
       } else {
         // If promotion failed, reset states
@@ -446,20 +470,38 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
     }
   };
 
-  const makeAIMove = async () => {
-    if (!isAIReady) return;
+  const makeAIMove = async (forceMove = false) => {
+    if (!isAIReady || isAIMakingMove) return;
     
     // Check if it's actually AI's turn
     const isAITurn = 
       (playerColor === 'White' && game.turn() === 'b') ||
       (playerColor === 'Black' && game.turn() === 'w');
     
-    if (!isAITurn) {
+    console.log('makeAIMove debug:', {
+      playerColor,
+      gameTurn: game.turn(),
+      isAITurn,
+      isAIReady,
+      isAIMakingMove,
+      forceMove
+    });
+    
+    // For initial move when player chooses Black, we need to check differently
+    if (!forceMove && !isAITurn) {
       console.warn('makeAIMove called but it\'s not AI\'s turn');
       return;
     }
     
+    // Special case: if player is Black and it's white's turn at start of game
+    if (forceMove && playerColor === 'Black' && game.turn() === 'w') {
+      console.log('Forcing AI first move as White (player is Black)');
+    }
+    
+    setIsAIMakingMove(true);
+    
     setIsAIThinking(true);
+    
     try {
       const moveString = await ai.findBestMove(game);
       if (moveString && moveString.length >= 4) {
@@ -502,6 +544,7 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
       console.error('AI move error:', error);
     } finally {
       setIsAIThinking(false);
+      setIsAIMakingMove(false);
     }
   };
 
@@ -560,12 +603,18 @@ return (
                   position={game.fen()}
                   boardOrientation={playerColor === 'Black' ? 'black' : 'white'}
                   onPieceDrop={(sourceSquare: string, targetSquare: string) => {
+                    console.log('onPieceDrop called:', { sourceSquare, targetSquare });
+                    setIntendedTarget(targetSquare); // Store where user intended to drop
                     return handleMove(sourceSquare, targetSquare);
                   }}
                   onPieceDragBegin={(piece: string, sourceSquare: string) => {
+                    console.log('Drag begin:', { piece, sourceSquare });
                     setDraggedPiece({ piece, from: sourceSquare });
+                    setIntendedTarget(null); // Reset intended target
                   }}
                   onPieceDragEnd={(piece: string, sourceSquare: string, targetSquare: string | null) => {
+                    console.log('onPieceDragEnd called:', { piece, sourceSquare, targetSquare, intendedTarget });
+                    
                     // If targetSquare is null, react-chessboard blocked the move
                     // This might be a promotion that was blocked, so we need to check
                     if (!targetSquare) {
@@ -581,9 +630,18 @@ return (
                           return;
                         }
 
+                        // Since onPieceDrop wasn't called, we need to detect promotion attempt
                         const file = sourceSquare[0];
                         const rank = sourceSquare[1];
                         let possibleMoves: string[] = [];
+                        
+                        console.log('Checking promotion conditions:', {
+                          piece,
+                          file,
+                          rank,
+                          isWhitePawnOnRank7: piece.includes('w') && rank === '7',
+                          isBlackPawnOnRank2: piece.includes('b') && rank === '2'
+                        });
                         
                         if (piece.includes('w') && rank === '7') {
                           // White pawn on rank 7 - check all possible promotion moves
@@ -601,7 +659,7 @@ return (
                           if (rightFile <= 'h') possibleMoves.push(rightFile + '1'); // Capture right
                         }
                         
-                        // Test each possible promotion move
+                        // Test each possible promotion move and pick the first legal one
                         for (const targetMove of possibleMoves) {
                           const testGame = new Chess(game.fen());
                           try {
@@ -612,17 +670,18 @@ return (
                             });
                             
                             if (testMove) {
-                              console.log('Drag-end promotion detected:', {
+                              console.log('Drag-end promotion detected (fallback):', {
                                 from: sourceSquare,
                                 to: targetMove,
                                 turn: game.turn(),
                                 isCapture: !!testMove.captured,
-                                captured: testMove.captured
+                                captured: testMove.captured,
+                                moveType: testMove.captured ? 'capture' : 'advance'
                               });
                               
                               setPendingMove({ from: sourceSquare, to: targetMove });
                               setShowPromotionModal(true);
-                              break; // Found a valid promotion move, stop checking
+                              break; // Use first legal promotion move found
                             }
                           } catch (error) {
                             // This move is not legal, try next one
@@ -633,6 +692,7 @@ return (
                     }
                     
                     setDraggedPiece(null);
+                    setIntendedTarget(null); // Clear intended target
                   }}
                   customBoardStyle={{
                     borderRadius: '4px',
