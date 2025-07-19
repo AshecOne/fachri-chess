@@ -38,7 +38,6 @@ export default function GamePage() {
   const [pendingMove, setPendingMove] = useState<{from: string, to: string} | null>(null);
   const [isProcessingPromotion, setIsProcessingPromotion] = useState(false);
   const [isAIMakingMove, setIsAIMakingMove] = useState(false);
-  const [draggedPiece, setDraggedPiece] = useState<{piece: string, from: string} | null>(null);
   const [intendedTarget, setIntendedTarget] = useState<string | null>(null);
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [validMoves, setValidMoves] = useState<string[]>([]);
@@ -160,7 +159,8 @@ export default function GamePage() {
     };
 
     handleInitialAIMove();
-  }, [isAIReady, playerColor]); // Remove 'game' from dependencies to prevent infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAIReady, playerColor]); // game and makeAIMove intentionally excluded to prevent infinite loop
 
   // Load move hints preference from localStorage
   useEffect(() => {
@@ -709,7 +709,6 @@ return (
                   }}
                   onPieceDragBegin={(piece: string, sourceSquare: string) => {
                     console.log('Drag begin:', { piece, sourceSquare });
-                    setDraggedPiece({ piece, from: sourceSquare });
                     setIntendedTarget(null); // Reset intended target
                   }}
                   onPieceDragEnd={(piece: string, sourceSquare: string, targetSquare: string | null) => {
@@ -733,7 +732,7 @@ return (
                         // Since onPieceDrop wasn't called, we need to detect promotion attempt
                         const file = sourceSquare[0];
                         const rank = sourceSquare[1];
-                        let possibleMoves: string[] = [];
+                        const possibleMoves: string[] = [];
                         
                         console.log('Checking promotion conditions:', {
                           piece,
@@ -783,7 +782,7 @@ return (
                               setShowPromotionModal(true);
                               break; // Use first legal promotion move found
                             }
-                          } catch (error) {
+                          } catch {
                             // This move is not legal, try next one
                             continue;
                           }
@@ -791,7 +790,6 @@ return (
                       }
                     }
                     
-                    setDraggedPiece(null);
                     setIntendedTarget(null); // Clear intended target
                   }}
                   customBoardStyle={{
