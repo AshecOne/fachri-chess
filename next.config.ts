@@ -1,41 +1,32 @@
 import type { NextConfig } from 'next';
-import type { Configuration as WebpackConfig } from 'webpack';
 
 const nextConfig: NextConfig = {
-  webpack: (config: WebpackConfig): WebpackConfig => {
-    return {
-      ...config,
-      experiments: {
-        ...config.experiments,
-        asyncWebAssembly: true,
-        layers: true,
+  // Configure external image domains
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'ashecone.github.io',
+        port: '',
+        pathname: '/fachri-chess/**',
       },
-      module: {
-        ...config.module,
-        rules: [
-          ...(config.module?.rules || []),
-          {
-            test: /\.wasm$/,
-            type: 'asset/resource',
-          },
-          {
-            test: /\.worker\.(js|ts)$/,
-            use: {
-              loader: 'worker-loader',
-              options: {
-                filename: 'static/[hash].worker.js',
-                publicPath: '/_next/',
-              },
-            },
-          },
-        ],
-      },
-      output: {
-        ...config.output,
-        publicPath: '/_next/',
-        globalObject: 'self',
-      },
+    ],
+  },
+  webpack: (config) => {
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
     };
+    
+    // Handle WASM files
+    config.module = config.module || {};
+    config.module.rules = config.module.rules || [];
+    config.module.rules.push({
+      test: /\.wasm$/,
+      type: 'asset/resource',
+    });
+
+    return config;
   },
   experimental: {
     optimizePackageImports: ['onnxruntime-web'],

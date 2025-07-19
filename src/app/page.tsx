@@ -9,7 +9,9 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handlePlayerInfo = (playerInfo: { name: string; gender: string }) => {
-    localStorage.setItem('playerInfo', JSON.stringify(playerInfo));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('playerInfo', JSON.stringify(playerInfo));
+    }
     router.push('/game');
   };
 

@@ -1,3 +1,59 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Hide react-chessboard built-in promotion UI - comprehensive approach */
+.promotion-piece,
+[data-piece*="w"][data-piece*="q"][style*="pointer"],
+[data-piece*="b"][data-piece*="q"][style*="pointer"],
+.choose-promotion-piece,
+[data-testid="promotion-piece"],
+/* Hide any piece with cursor pointer that appears during promotion */
+[data-piece][style*="cursor: pointer"],
+/* Hide promotion dialog grids */
+div[style*="position: absolute"][style*="z-index"] > div[style*="display: grid"],
+div[style*="display: grid"][style*="grid-template-columns"],
+/* Hide any absolutely positioned elements with high z-index during promotion */
+div[style*="position: absolute"][style*="z-index: 10"],
+div[style*="position: absolute"][style*="z-index: 20"],
+div[style*="position: absolute"][style*="z-index: 30"],
+/* Target react-chessboard promotion overlay */
+.react-chessboard div[style*="position: absolute"][style*="background"],
+/* Hide floating pieces during promotion */
+div[data-piece][style*="position: absolute"][style*="cursor: pointer"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+/* More specific selectors for promotion pieces */
+div > div[data-piece="wQ"][style*="cursor: pointer"],
+div > div[data-piece="wR"][style*="cursor: pointer"],
+div > div[data-piece="wB"][style*="cursor: pointer"],
+div > div[data-piece="wN"][style*="cursor: pointer"],
+div > div[data-piece="bQ"][style*="cursor: pointer"],
+div > div[data-piece="bR"][style*="cursor: pointer"],
+div > div[data-piece="bB"][style*="cursor: pointer"],
+div > div[data-piece="bN"][style*="cursor: pointer"] {
+  display: none !important;
+}
+
+/* Nuclear option - hide any element that could be promotion UI */
+* {
+  /* Hide react-chessboard promotion elements by checking common patterns */
+}
+
+*[style*="cursor: pointer"][data-piece] {
+  /* Only hide if it's a floating piece during promotion */
+  position: relative !important;
+}
+
+/* Target the specific promotion overlay pattern */
+div[style*="position: absolute"][style*="left"][style*="top"] > div[data-piece][style*="cursor: pointer"] {
+  display: none !important;
+}
+
+/* Brute force approach - monitor for promotion UI and hide it */
+body:has(div[data-piece][style*="cursor: pointer"]) div[data-piece][style*="cursor: pointer"] {
+  display: none !important;
+}

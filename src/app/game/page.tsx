@@ -6,8 +6,10 @@ import { Chess } from 'chess.js'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import ColorSelectionModal from '@/components/ColorSelectionModal'
+import PromotionModal from '@/components/PromotionModal'
 import { ChessAI } from '@/lib/chess-ai'
 import { ChatService } from '@/services/chat-service';
+import { getImageUrl } from '@/lib/utils';
 
 const ChessboardComponent = dynamic(
   () => import('react-chessboard').then((mod) => mod.Chessboard),
@@ -32,8 +34,15 @@ export default function GamePage() {
   const [winner, setWinner] = useState<string | null>(null);
   const [chatService] = useState(() => new ChatService());
   const [gameSituation, setGameSituation] = useState<'normal' | 'advantage' | 'disadvantage' | 'check' | 'winning' | 'losing' | 'draw'>('normal');
+  const [showPromotionModal, setShowPromotionModal] = useState(false);
+  const [pendingMove, setPendingMove] = useState<{from: string, to: string} | null>(null);
+  const [isProcessingPromotion, setIsProcessingPromotion] = useState(false);
+  const [draggedPiece, setDraggedPiece] = useState<{piece: string, from: string} | null>(null);
 
   useEffect(() => {
+    // Only access localStorage on client side
+    if (typeof window === 'undefined') return;
+    
     // Cek info player
     const storedInfo = localStorage.getItem('playerInfo');
     if (!storedInfo) {
@@ -66,6 +75,9 @@ export default function GamePage() {
   }, [router]);
 
   useEffect(() => {
+    // Only access localStorage on client side
+    if (typeof window === 'undefined') return;
+    
     // Load saved game state if exists
     const savedGameState = localStorage.getItem('gameState');
     if (savedGameState) {
@@ -288,17 +300,67 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
       ) {
         return false;
       }
-  
+
+      const piece = game.get(from);
+
+      // Check if this could be a promotion move (before validating)
+      const couldBePromotion = piece && 
+        piece.type === 'p' && 
+        ((piece.color === 'w' && to[1] === '8') || (piece.color === 'b' && to[1] === '1'));
+
+      if (couldBePromotion) {
+        // Test if the promotion move is actually legal (including captures)
+        const testGame = new Chess(game.fen());
+        let isLegalPromotionMove = false;
+        
+        try {
+          // Test the move with promotion to validate it's legal
+          const testMove = testGame.move({
+            from,
+            to,
+            promotion: 'q', // Test with queen
+          });
+          isLegalPromotionMove = !!testMove;
+          
+          // Log promotion attempt for debugging
+          console.log('Promotion move test:', {
+            from,
+            to,
+            piece: piece?.type + piece?.color,
+            isCapture: !!testMove?.captured,
+            isLegal: isLegalPromotionMove
+          });
+        } catch (error) {
+          console.log('Promotion test failed:', error.message);
+          isLegalPromotionMove = false;
+        }
+
+        if (isLegalPromotionMove) {
+          // Store the move and show promotion modal - don't execute move yet
+          setPendingMove({ from, to });
+          setShowPromotionModal(true);
+          
+          console.log('Showing promotion modal for move:', { from, to });
+          
+          // Return false to prevent react-chessboard from updating visually
+          // We'll handle the visual update after user selects promotion piece
+          return false;
+        }
+      }
+
+      // Normal move without promotion
       const move = game.move({
         from,
         to,
-        promotion: 'q',
       });
   
       if (move) {
+        // Create a new game instance with the updated state
         const newGame = new Chess(game.fen());
         setGame(newGame);
-        localStorage.setItem('gameState', newGame.pgn());
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('gameState', newGame.pgn());
+        }
   
         // AI membuat gerakan setelah pemain
         setTimeout(() => {
@@ -313,8 +375,90 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
     return false;
   };
 
+  const handlePromotionSelect = (promotionPiece: 'q' | 'r' | 'b' | 'n') => {
+    if (!pendingMove || isProcessingPromotion) {
+      console.error('No pending move for promotion or already processing');
+      return;
+    }
+    
+    setIsProcessingPromotion(true);
+
+    console.log('Executing promotion:', {
+      from: pendingMove.from,
+      to: pendingMove.to,
+      piece: promotionPiece,
+      currentTurn: game.turn(),
+      gameState: game.fen()
+    });
+
+    try {
+      // Execute promotion move directly on the current game instance
+      const move = game.move({
+        from: pendingMove.from,
+        to: pendingMove.to,
+        promotion: promotionPiece,
+      });
+
+      if (move) {
+        console.log('Promotion successful:', move);
+        
+        // Create new game instance to trigger re-render
+        const newGame = new Chess(game.fen());
+        setGame(newGame);
+        
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('gameState', newGame.pgn());
+        }
+
+        // Clear promotion state
+        setShowPromotionModal(false);
+        setPendingMove(null);
+        setIsProcessingPromotion(false);
+
+        console.log('New game state after promotion:', {
+          fen: newGame.fen(),
+          turn: newGame.turn(),
+          isGameOver: newGame.isGameOver()
+        });
+
+        // AI makes move after player
+        setTimeout(() => {
+          makeAIMove();
+        }, 500);
+      } else {
+        // If promotion failed, reset states
+        console.error('Promotion move failed - move returned null');
+        setShowPromotionModal(false);
+        setPendingMove(null);
+        setIsProcessingPromotion(false);
+      }
+    } catch (error) {
+      console.error('Promotion error:', error);
+      console.error('Error details:', {
+        pendingMove,
+        promotionPiece,
+        gameState: game.fen()
+      });
+      // Reset promotion state on error
+      setShowPromotionModal(false);
+      setPendingMove(null);
+      setIsProcessingPromotion(false);
+    }
+  };
+
   const makeAIMove = async () => {
     if (!isAIReady) return;
+    
+    // Check if it's actually AI's turn
+    const isAITurn = 
+      (playerColor === 'White' && game.turn() === 'b') ||
+      (playerColor === 'Black' && game.turn() === 'w');
+    
+    if (!isAITurn) {
+      console.warn('makeAIMove called but it\'s not AI\'s turn');
+      return;
+    }
+    
     setIsAIThinking(true);
     try {
       const moveString = await ai.findBestMove(game);
@@ -333,18 +477,24 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
           if (move) {
             const newGame = new Chess(game.fen());
             setGame(newGame);
-            localStorage.setItem('gameState', newGame.pgn());
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('gameState', newGame.pgn());
+            }
           }
         } catch (moveError) {
-          console.error('Invalid move:', moveString, moveError);
+          console.error('Invalid AI move:', moveString, moveError);
           // Fallback: Make a random legal move
           const legalMoves = game.moves({ verbose: true });
           if (legalMoves.length > 0) {
             const randomMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
-            game.move(randomMove);
-            const newGame = new Chess(game.fen());
-            setGame(newGame);
-            localStorage.setItem('gameState', newGame.pgn());
+            const fallbackMove = game.move(randomMove);
+            if (fallbackMove) {
+              const newGame = new Chess(game.fen());
+              setGame(newGame);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('gameState', newGame.pgn());
+              }
+            }
           }
         }
       }
@@ -410,9 +560,86 @@ return (
                   position={game.fen()}
                   boardOrientation={playerColor === 'Black' ? 'black' : 'white'}
                   onPieceDrop={(sourceSquare: string, targetSquare: string) => {
-                    handleMove(sourceSquare, targetSquare);
-                    return true;
+                    return handleMove(sourceSquare, targetSquare);
                   }}
+                  onPieceDragBegin={(piece: string, sourceSquare: string) => {
+                    setDraggedPiece({ piece, from: sourceSquare });
+                  }}
+                  onPieceDragEnd={(piece: string, sourceSquare: string, targetSquare: string | null) => {
+                    // If targetSquare is null, react-chessboard blocked the move
+                    // This might be a promotion that was blocked, so we need to check
+                    if (!targetSquare) {
+                      const isPawn = piece.toLowerCase().includes('p');
+                      
+                      if (isPawn) {
+                        // Check if it's the player's turn
+                        const isPlayerTurn = 
+                          (playerColor === 'White' && game.turn() === 'w') ||
+                          (playerColor === 'Black' && game.turn() === 'b');
+                        
+                        if (!isPlayerTurn) {
+                          return;
+                        }
+
+                        const file = sourceSquare[0];
+                        const rank = sourceSquare[1];
+                        let possibleMoves: string[] = [];
+                        
+                        if (piece.includes('w') && rank === '7') {
+                          // White pawn on rank 7 - check all possible promotion moves
+                          possibleMoves.push(file + '8'); // Forward
+                          const leftFile = String.fromCharCode(file.charCodeAt(0) - 1);
+                          const rightFile = String.fromCharCode(file.charCodeAt(0) + 1);
+                          if (leftFile >= 'a') possibleMoves.push(leftFile + '8'); // Capture left
+                          if (rightFile <= 'h') possibleMoves.push(rightFile + '8'); // Capture right
+                        } else if (piece.includes('b') && rank === '2') {
+                          // Black pawn on rank 2 - check all possible promotion moves
+                          possibleMoves.push(file + '1'); // Forward
+                          const leftFile = String.fromCharCode(file.charCodeAt(0) - 1);
+                          const rightFile = String.fromCharCode(file.charCodeAt(0) + 1);
+                          if (leftFile >= 'a') possibleMoves.push(leftFile + '1'); // Capture left
+                          if (rightFile <= 'h') possibleMoves.push(rightFile + '1'); // Capture right
+                        }
+                        
+                        // Test each possible promotion move
+                        for (const targetMove of possibleMoves) {
+                          const testGame = new Chess(game.fen());
+                          try {
+                            const testMove = testGame.move({
+                              from: sourceSquare,
+                              to: targetMove,
+                              promotion: 'q'
+                            });
+                            
+                            if (testMove) {
+                              console.log('Drag-end promotion detected:', {
+                                from: sourceSquare,
+                                to: targetMove,
+                                turn: game.turn(),
+                                isCapture: !!testMove.captured,
+                                captured: testMove.captured
+                              });
+                              
+                              setPendingMove({ from: sourceSquare, to: targetMove });
+                              setShowPromotionModal(true);
+                              break; // Found a valid promotion move, stop checking
+                            }
+                          } catch (error) {
+                            // This move is not legal, try next one
+                            continue;
+                          }
+                        }
+                      }
+                    }
+                    
+                    setDraggedPiece(null);
+                  }}
+                  customBoardStyle={{
+                    borderRadius: '4px',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                  }}
+                  customDarkSquareStyle={{ backgroundColor: '#779952' }}
+                  customLightSquareStyle={{ backgroundColor: '#edeed1' }}
                   boardWidth={Math.min(600, typeof window !== 'undefined' ? window.innerWidth - 80 : 600)}
                 />
               </div>
@@ -423,7 +650,7 @@ return (
                 <div className="text-center">
                   <div className="relative w-24 h-24 mx-auto mb-2">
                     <Image
-                      src="https://ashecone.github.io/fachri-chess/fachri.jpg"
+                      src={getImageUrl('fachri.jpg')}
                       alt="Fachri"
                       sizes="96px"
                       priority
@@ -468,7 +695,7 @@ return (
                 <div className="text-center">
                   <div className="relative w-16 h-16 mx-auto mb-2">
                     <Image
-                      src="/fachri.jpg"
+                      src={getImageUrl('fachri.jpg')}
                       alt="Fachri"
                       sizes="64px"
                       priority
@@ -582,6 +809,15 @@ return (
       isOpen={showColorModal}
       onSelect={handleColorSelect}
     />
+
+    {/* Promotion Modal */}
+    {playerColor && (
+      <PromotionModal
+        isOpen={showPromotionModal}
+        playerColor={playerColor}
+        onSelect={handlePromotionSelect}
+      />
+    )}
   </div>
 );
 }
