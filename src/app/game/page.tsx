@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Chess } from 'chess.js'
+import { Chess, Square } from 'chess.js'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import ColorSelectionModal from '@/components/ColorSelectionModal'
@@ -347,7 +347,7 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
     
     if (!isPlayerTurn) return;
 
-    const piece = game.get(square as any);
+    const piece = game.get(square as Square);
     
     // If no piece is selected yet
     if (!selectedSquare) {
@@ -358,7 +358,7 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
         setSelectedSquare(square);
         
         // Get valid moves for this piece
-        const moves = game.moves({ square: square as any, verbose: true });
+        const moves = game.moves({ square: square as Square, verbose: true });
         const moveSquares = moves.map(move => move.to);
         setValidMoves(moveSquares);
         
@@ -376,7 +376,7 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
                   (playerColor === 'Black' && piece.color === 'b'))) {
         // Clicking another own piece - select the new piece
         setSelectedSquare(square);
-        const moves = game.moves({ square: square as any, verbose: true });
+        const moves = game.moves({ square: square as Square, verbose: true });
         const moveSquares = moves.map(move => move.to);
         setValidMoves(moveSquares);
         console.log('New piece selected:', square, 'Valid moves:', moveSquares);
@@ -409,7 +409,7 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
         return false;
       }
 
-      const piece = game.get(from as any);
+      const piece = game.get(from as Square);
 
       // Check if this could be a promotion move (before validating)
       const couldBePromotion = piece && 
@@ -809,7 +809,7 @@ return (
                     // Conditionally highlight valid move squares
                     ...(showMoveHints ? validMoves.reduce((styles, square) => {
                       styles[square] = {
-                        backgroundColor: game.get(square as any) ? 'rgba(255, 0, 0, 0.4)' : 'rgba(0, 255, 0, 0.4)',
+                        backgroundColor: game.get(square as Square) ? 'rgba(255, 0, 0, 0.4)' : 'rgba(0, 255, 0, 0.4)',
                         borderRadius: '50%',
                         border: '2px solid #007bff'
                       };
