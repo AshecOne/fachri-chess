@@ -1,6 +1,6 @@
 import { Chess, Square, Move } from "chess.js";
 import * as ort from "onnxruntime-web";
-// import { getModelUrl } from "./utils";
+import { getModelUrl } from "./utils";
 
 declare module "onnxruntime-web" {
   interface WasmPaths {
@@ -32,7 +32,7 @@ export class ChessAI {
   private initializationStatus: AIStatus = "idle";
   private modelLoadingProgress: number = 0;
   private maxDepth = 3;
-  private initPromise: Promise<void>;
+  private initPromise: Promise<void> | null = null;
 
   constructor() {
     // Initialize opening book in constructor
@@ -167,6 +167,20 @@ export class ChessAI {
   }
 
   public async initialize(): Promise<void> {
+    // Prevent multiple initialization
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+
+    if (this.initializationStatus === "ready") {
+      return Promise.resolve();
+    }
+
+    this.initPromise = this._doInitialize();
+    return this.initPromise;
+  }
+
+  private async _doInitialize(): Promise<void> {
     this.initializationStatus = "loading";
 
     try {
