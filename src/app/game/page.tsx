@@ -646,16 +646,7 @@ const handleColorSelect = (color: 'White' | 'Black' | 'random') => {
 
 // Update renderLoadingState
 const renderLoadingState = () => {
-  if (modelLoadingStatus.status === 'loading' || isAIThinking) { // Tambah isAIThinking
-    return (
-      <div className="fixed top-0 left-0 right-0 bg-blue-500 h-1">
-        <div 
-          className="bg-blue-600 h-full transition-all duration-300"
-          style={{ width: isAIThinking ? '100%' : `${modelLoadingStatus.progress}%` }}
-        />
-      </div>
-    );
-  }
+  // Loading indicator removed - no more blue bar
   return null;
 };
 
@@ -669,23 +660,7 @@ return (
       {/* Loading Progress Bar */}
       {renderLoadingState()}
 
-      {/* Loading Overlay */}
-      {modelLoadingStatus.status === 'loading' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl w-80">
-            <h3 className="text-lg font-semibold mb-2">Loading Chess AI</h3>
-            <p className="text-gray-600 mb-4">
-              Initializing game... {modelLoadingStatus.progress.toFixed(0)}%
-            </p>
-            <div className="w-full bg-gray-200 rounded-full h-2.5">
-              <div 
-                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                style={{ width: `${modelLoadingStatus.progress}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Loading overlay removed - no more blue loading indicators */}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Chess Board and Players Section */}
