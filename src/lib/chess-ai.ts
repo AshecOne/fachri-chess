@@ -1,6 +1,6 @@
 import { Chess, Square, Move } from "chess.js";
 import * as ort from "onnxruntime-web";
-import { getModelUrl } from "./utils";
+// import { getModelUrl } from "./utils";
 
 declare module "onnxruntime-web" {
   interface WasmPaths {
