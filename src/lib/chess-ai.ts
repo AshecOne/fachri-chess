@@ -184,7 +184,7 @@ export class ChessAI {
     try {
       // Check if backend API is available
       console.log('Connecting to Chess AI backend...');
-      const response = await fetch('https://nw-clarke-situations-villages.trycloudflare.com/api/health');
+      const response = await fetch('https://weather-annex-exciting-claimed.trycloudflare.com/api/health');
       
       if (!response.ok) {
         throw new Error(`Backend API not available: ${response.status}`);
@@ -211,7 +211,7 @@ export class ChessAI {
   public async findBestMove(game: Chess): Promise<string> {
     try {
       // Call backend API for best move
-      const response = await fetch('https://nw-clarke-situations-villages.trycloudflare.com/api/move', {
+      const response = await fetch('https://weather-annex-exciting-claimed.trycloudflare.com/api/move', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
