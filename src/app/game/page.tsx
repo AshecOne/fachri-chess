@@ -26,10 +26,7 @@ export default function GamePage() {
   const [ai] = useState(new ChessAI());
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [isAIReady, setIsAIReady] = useState(false);
-  const [modelLoadingStatus, setModelLoadingStatus] = useState<{
-    status: string;
-    progress: number;
-  }>({ status: 'idle', progress: 0 });
+  // Loading status removed - using direct API calls
   const [gameStatus, setGameStatus] = useState<'playing' | 'over' | null>(null);
   const [winner, setWinner] = useState<string | null>(null);
   const [chatService] = useState(() => new ChatService());
@@ -246,41 +243,18 @@ useEffect(() => {
 }, [game, playerColor, playerInfo, winner]);
 
 useEffect(() => {
-  let intervalId: NodeJS.Timeout;
-  
   const initGame = async () => {
-    setModelLoadingStatus({ status: 'loading', progress: 0 });
-    
-    // Simulasi loading progress yang lebih smooth
-    let progress = 0;
-    intervalId = setInterval(() => {
-      progress += 2; // Lebih pelan
-      if (progress <= 90) { // Hanya sampai 90% untuk simulasi
-        setModelLoadingStatus(prev => ({
-          ...prev,
-          progress: progress
-        }));
-      }
-    }, 50); // Interval lebih cepat
-
     try {
       await ai.initialize();
       setIsAIReady(true);
-      // Set langsung ke 100% setelah benar-benar selesai
-      setModelLoadingStatus({ status: 'ready', progress: 100 });
     } catch (error) {
       console.error('Failed to initialize AI:', error);
-      setModelLoadingStatus({ status: 'error', progress: 0 });
-    } finally {
-      clearInterval(intervalId);
     }
   };
 
   initGame();
   
-  return () => {
-    if (intervalId) clearInterval(intervalId);
-  };
+  // No cleanup needed
 }, [ai]);
 
   // Game over actions
