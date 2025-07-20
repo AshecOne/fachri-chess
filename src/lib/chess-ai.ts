@@ -79,8 +79,7 @@ export class ChessAI {
       ["rnbqkbnr/pp1ppppp/2p5/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq - 0 2", "d5"],
       ["rnbqkbnr/pp2pppp/2p5/3p4/3PP3/8/PPP2PPP/RNBQKBNR w KQkq - 0 3", "Nc3"],
     ]);
-    this.initialize();
-    this.initPromise = this.initialize();
+    // Initialization will be called when needed
   }
 
   public getInitializationStatus(): { status: AIStatus; progress: number } {
