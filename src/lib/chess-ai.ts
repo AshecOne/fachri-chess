@@ -91,57 +91,7 @@ export class ChessAI {
     };
   }
 
-  private boardToInput(board: Chess): Float32Array {
-    const input = new Float32Array(896);
-    const pieces = "PNBRQKpnbrqk";
-
-    // Basic piece positions (768)
-    for (let i = 0; i < 8; i++) {
-      for (let j = 0; j < 8; j++) {
-        const square = (String.fromCharCode(97 + j) + (8 - i)) as Square;
-        const piece = board.get(square);
-        if (piece) {
-          const pieceIndex = pieces.indexOf(
-            piece.type + (piece.color === "w" ? "" : piece.type.toLowerCase())
-          );
-          if (pieceIndex !== -1) {
-            input[(i * 8 + j) * 12 + pieceIndex] = 1;
-          }
-        }
-      }
-    }
-
-    // Material count and positional features
-    let featureIdx = 768;
-
-    // Material count (piece counts for each side)
-    const counts = this.countAllPieces(board);
-    for (const piece of "PNBRQKpnbrqk") {
-      input[featureIdx++] = counts[piece] || 0;
-    }
-
-    // Center control
-    const centerSquares = ["e4", "d4", "e5", "d5"];
-    let whiteCenterControl = 0;
-    let blackCenterControl = 0;
-
-    for (const square of centerSquares) {
-      if (board.get(square as Square)) {
-        if (board.get(square as Square)?.color === "w") whiteCenterControl++;
-        else blackCenterControl++;
-      }
-    }
-
-    input[featureIdx++] = whiteCenterControl;
-    input[featureIdx++] = blackCenterControl;
-
-    // King safety (distance of enemy pieces from king)
-    const kings = this.findKings(board);
-    input[featureIdx++] = this.evaluateKingSafety(board, kings.white, "w");
-    input[featureIdx++] = this.evaluateKingSafety(board, kings.black, "b");
-
-    return input;
-  }
+  // This method is no longer needed as we use backend API
 
   private countAllPieces(board: Chess): { [key: string]: number } {
     const counts: { [key: string]: number } = {};
@@ -217,114 +167,59 @@ export class ChessAI {
   }
 
   public async initialize(): Promise<void> {
-    if (this.model) return;
-
     this.initializationStatus = "loading";
 
     try {
-      // Temporary fallback - skip model loading if it fails
-      console.log('Attempting to load ONNX model...');
-      // Konfigurasi untuk optimasi performa
-      const options: ort.InferenceSession.SessionOptions = {
-        executionProviders: ["wasm"],
-        graphOptimizationLevel: "all",
-        executionMode: "sequential",
-        enableCpuMemArena: true,
-        enableMemPattern: true,
-        enableProfiling: false,
-      };
-
-      // Get model URL using utility function
-      const modelUrl = getModelUrl();
-      const response = await fetch(modelUrl);
-
-      if (!response.ok) throw new Error("Failed to fetch model");
-
-      const contentLength = response.headers.get("content-length");
-      const total = contentLength ? parseInt(contentLength, 10) : 0;
-      let loaded = 0;
-
-      const reader = response.body!.getReader();
-      const chunks: Uint8Array[] = [];
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        chunks.push(value);
-        loaded += value.length;
-        this.modelLoadingProgress = (loaded / total) * 100;
+      // Check if backend API is available
+      console.log('Connecting to Chess AI backend...');
+      const response = await fetch('https://nw-clarke-situations-villages.trycloudflare.com/api/health');
+      
+      if (!response.ok) {
+        throw new Error(`Backend API not available: ${response.status}`);
       }
-
-      const modelData = new Blob(chunks);
-      const arrayBuffer = await modelData.arrayBuffer();
-
-      this.model = await ort.InferenceSession.create(
-        new Uint8Array(arrayBuffer),
-        options
-      );
-
+      
+      const health = await response.json();
+      console.log('Backend API status:', health);
+      
+      if (health.model !== 'loaded') {
+        throw new Error('Backend model not loaded');
+      }
+      
       this.initializationStatus = "ready";
       this.modelLoadingProgress = 100;
+      console.log('Chess AI backend connected successfully!');
     } catch (error) {
-      console.error("Error loading model:", error);
-      console.log("Falling back to simple AI without ONNX model");
-      this.initializationStatus = "ready"; // Mark as ready even without model
-      this.modelLoadingProgress = 100;
-      // Don't throw error, just continue without model
+      console.error("Error connecting to backend:", error);
+      this.initializationStatus = "error";
+      this.modelLoadingProgress = 0;
+      throw new Error('Chess AI backend unavailable. Please ensure the backend service is running.');
     }
   }
 
   public async findBestMove(game: Chess): Promise<string> {
-    // Cek opening book dulu
-    const bookMove = this.getOpeningBookMove(game);
-    if (bookMove) {
-      // Tambahkan variasi dalam opening
-      const shouldUseBook = Math.random() > 0.2; // 80% chance menggunakan opening book
-      if (shouldUseBook) return bookMove;
+    try {
+      // Call backend API for best move
+      const response = await fetch('https://nw-clarke-situations-villages.trycloudflare.com/api/move', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fen: game.fen() }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.move;
+    } catch (error) {
+      console.error('Error calling chess API:', error);
+      throw new Error('Chess AI service unavailable');
     }
-
-    const moves = game.moves({ verbose: true });
-    if (moves.length === 0) return "";
-
-    const topMoves: { move: Move; score: number }[] = [];
-    const isWhite = game.turn() === "w";
-
-    // Evaluate semua gerakan yang mungkin
-    for (const move of moves) {
-      game.move(move);
-      const score = await this.evaluatePosition(game);
-      game.undo();
-
-      const adjustedScore = isWhite ? score : -score;
-      topMoves.push({ move, score: adjustedScore });
-    }
-
-    // Sort dan ambil beberapa gerakan terbaik
-    topMoves.sort((a, b) => b.score - a.score);
-    const topN = Math.min(3, topMoves.length); // Ambil 3 gerakan terbaik
-
-    // Pilih secara random dari top moves dengan weighted probability
-    const randomIndex = this.weightedRandomIndex(topN);
-    const selectedMove = topMoves[randomIndex].move;
-
-    return `${selectedMove.from}${selectedMove.to}`;
   }
 
-  private weightedRandomIndex(n: number): number {
-    // Berikan bobot lebih tinggi untuk moves yang lebih baik
-    const weights = Array(n)
-      .fill(0)
-      .map((_, i) => 1 / (i + 1));
-    const totalWeight = weights.reduce((a, b) => a + b, 0);
-
-    let random = Math.random() * totalWeight;
-    for (let i = 0; i < weights.length; i++) {
-      random -= weights[i];
-      if (random <= 0) return i;
-    }
-    return 0;
-  }
+  // This method is no longer needed as we use backend API
 
   private getOpeningBookMove(game: Chess): string | undefined {
     const fen = game.fen();
@@ -362,47 +257,7 @@ export class ChessAI {
     return undefined;
   }
 
-  private async evaluatePosition(board: Chess): Promise<number> {
-    if (!this.model) {
-      await this.initPromise;
-      if (!this.model) {
-        // Fallback to quick evaluation if model not available
-        console.log("Using fallback evaluation (no ONNX model)");
-        return this.quickEvaluate(board);
-      }
-    }
-
-    // Cek cache dulu
-    const fen = board.fen();
-    if (this.positionCache.has(fen)) {
-      return this.positionCache.get(fen)!;
-    }
-
-    const input = this.boardToInput(board);
-    const tensor = new ort.Tensor("float32", input, [1, 896]);
-
-    try {
-      const output = await this.model.run({ input: tensor });
-      let score = output["output"].data[0] as number;
-
-      // Tambahkan sedikit noise untuk variasi
-      const noise = (Math.random() - 0.5) * 0.1; // ±5% variasi
-      score = score * (1 + noise);
-
-      // Invert score if playing as black
-      if (board.turn() === "b") {
-        score = -score;
-      }
-
-      // Cache the result
-      this.positionCache.set(fen, score);
-
-      return score;
-    } catch (error) {
-      console.error("Evaluation error:", error);
-      return 0;
-    }
-  }
+  // This method is no longer needed as we use backend API
 
   private async findSimpleMoveVerbose(game: Chess): Promise<Move | null> {
     const moves = game.moves({ verbose: true });
